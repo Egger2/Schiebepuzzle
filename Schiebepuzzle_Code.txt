@@ -1,0 +1,228 @@
+#include<iostream>
+#include<string>
+#include<fstream>
+#include<sstream>
+#include<windows.h>
+#include<chrono>
+#include<ctime>
+
+enum EMove
+{
+    keUp = 'w', keDown = 's', keLeft = 'a', keRight = 'd'
+};
+
+void InitializeBoard(char[4][4]);
+void PrintBoard(char[4][4]);
+void LocateSpace(int&, int&, char[4][4]);
+void Randomize(char[4][4]);
+void Move(char[4][4], const EMove);
+
+int nScreenWidth = 80;
+int nScreenHeight = 30;
+
+int main()
+{
+    wchar_t* screen = new wchar_t[nScreenWidth * nScreenHeight];
+    for (int i = 0; i < nScreenWidth * nScreenHeight; i++) screen[i] = L' ';
+    HANDLE hConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE, 0, NULL, CONSOLE_TEXTMODE_BUFFER, NULL);
+    SetConsoleActiveScreenBuffer(hConsole);
+    DWORD dwBytesWritten = 0;
+    
+    char caaBoard[4][4];
+    InitializeBoard(caaBoard);
+    Randomize(caaBoard);
+
+    do
+    {
+        PrintBoard(caaBoard);
+        std::cout << std::endl << "w = Up, s = Down, a = Left, d = Right" << std::endl;
+        char cNextMove;
+        std::cin >> cNextMove;
+        EMove eNextMove = (EMove) cNextMove;
+        Move(caaBoard, eNextMove);
+        std::cout << std::endl;
+    } while (true);
+
+    int nRekord = 0;
+    int nRekordOld = 0;
+    int nScore = 0;
+    int nScoreOld = 0;
+    bool bGameOver = false, bKeyPause = false;
+    bool bPause = false;
+    bool bDead = false;
+    bool bKeyExit = false;
+    bool bForceDown = false;
+
+    std::string line;
+    std::ifstream myfile("Schiebepuzzle.txt");
+    if (myfile.is_open())
+    {
+        while (getline(myfile, line))
+        {
+            std::stringstream geek(line);
+            int line = 0;
+            geek >> line;
+
+            nRekordOld = line;
+        }
+        myfile.close();
+    }
+
+    while (!bGameOver)
+    {
+        WriteConsoleOutputCharacter(hConsole, screen, nScreenWidth * nScreenHeight, { 0, 0 }, &dwBytesWritten);
+
+        bKeyPause = (0x8000 & GetAsyncKeyState((unsigned char)('\x50'))) != 0;
+        bKeyExit = (0x8000 & GetAsyncKeyState((unsigned char)('\x58'))) != 0;
+
+        if (bKeyPause)
+        {
+            bPause = true;
+        }
+
+        bForceDown = false;
+
+        if (bGameOver)
+        {
+            wsprintf(&screen[10 * nScreenWidth + 40], L"     GAME OVER");
+            wsprintf(&screen[12 * nScreenWidth + 40], L"     Score:%d", nScore);
+            wsprintf(&screen[13 * nScreenWidth + 40], L"     Rekord:%d", nRekord);
+            wsprintf(&screen[15 * nScreenWidth + 35], L"PRESS    'SPACE' TO PLAY AGAIN");
+            wsprintf(&screen[17 * nScreenWidth + 35], L"PRESS    'X' TO EXIT");
+        }
+
+        if (bPause)
+        {
+            wsprintf(&screen[10 * nScreenWidth + 58], L" PAUSE ");
+            wsprintf(&screen[12 * nScreenWidth + 51], L"Score:%d", nScore);
+            wsprintf(&screen[13 * nScreenWidth + 51], L"Record:%d", nRekord);
+            wsprintf(&screen[15 * nScreenWidth + 50], L"PRESS   'R' TO RESUME");
+            WriteConsoleOutputCharacter(hConsole, screen, nScreenWidth * nScreenHeight, { 0, 0 }, &dwBytesWritten);
+
+            while ((0x8000 & GetAsyncKeyState((unsigned char)('\x52'))) == 0);
+            bPause = true;
+            for (int i = 0; i < nScreenWidth * nScreenHeight; i++) screen[i] = L' ';
+        }
+
+        // Display Frame
+        WriteConsoleOutputCharacter(hConsole, screen, nScreenWidth * nScreenHeight, { 0, 0 }, &dwBytesWritten);
+    }
+
+    do {
+        bKeyExit = (0x8000 & GetAsyncKeyState((unsigned char)('\x58'))) != 0;
+        if (bKeyExit)
+        {
+            return EXIT_SUCCESS;
+        }
+    } while ((0x8000 & GetAsyncKeyState((unsigned char)('\x20'))) == 0);
+    for (int i = 0; i < nScreenWidth * nScreenHeight; i++) screen[i] = L' ';
+
+    return 0;
+}
+
+void InitializeBoard(char caaBoard[4][4]) {
+    const char kcaaInitial[4][4] = {
+        {'1', '2', '3', '4'},
+        {'5', '6', '7', '8'},
+        {'9', 'A', 'B', 'C'},
+        {'D', 'E', 'F', ' '}
+    };
+
+    for (int iRow = 0; iRow < 4; ++iRow) {
+        for (int iCol = 0; iCol < 4; ++iCol) {
+            caaBoard[iRow][iCol] = kcaaInitial[iRow][iCol];
+        }
+    }
+}
+
+void PrintBoard(char caaBoard[4][4])
+{
+    for (int iRow = 0; iRow < 4; ++iRow) {
+        for (int iCol = 0; iCol < 4; ++iCol) {
+            std::cout << caaBoard[iRow][iCol];
+        }
+        std::cout << std::endl;
+    }
+}
+
+void LocateSpace(int& irRow, int& irCol, char caaBoard[4][4]) {
+    for (int iRow = 0; iRow < 4; ++iRow) {
+        for (int iCol = 0; iCol < 4; ++iCol) {
+            if (caaBoard[iRow][iCol] == ' ') {
+                irRow = iRow;
+                irCol = iCol;
+            }
+        }
+    }
+}
+
+void Randomize(char caaBoard[4][4]) {
+    std::srand((unsigned int)time(0));
+    for (int iIndex = 0; iIndex < 1000000; ++iIndex) {
+        const int kiNextMove = (rand() % 4);
+        switch (kiNextMove) {
+        case 0:
+            {
+                Move(caaBoard, keUp);
+                break;
+            }
+
+            case 1:
+            {
+                Move(caaBoard, keDown);
+                break;
+            }
+
+            case 2:
+            {
+                Move(caaBoard, keLeft);
+                break;
+            }
+
+            case 3:
+            {
+                Move(caaBoard, keRight);
+                break;
+            }
+            
+        }
+    }
+}
+
+void Move(char caaBoard[4][4], const EMove keMove) {
+    int iRowSpace;
+    int iColSpace;
+    LocateSpace(iRowSpace, iColSpace, caaBoard);
+    int iRowMove(iRowSpace);
+    int iColMove(iColSpace);
+    switch (keMove){
+        case keUp:
+        {
+            iRowMove = iRowSpace + 1;
+            break;
+        }
+
+        case keDown:
+        {
+            iRowMove = iRowSpace - 1;
+            break;
+        }
+    
+        case keLeft:
+        {
+            iColMove = iColSpace + 1;
+            break;
+        }
+
+        case keRight:
+        {
+            iColMove = iColSpace - 1;
+            break;
+        } 
+    }
+
+    if (iRowMove >= 0 && iRowMove < 4 && iColMove >= 0 && iColMove < 4) {
+        caaBoard[iRowSpace][iColSpace] = caaBoard[iRowMove][iColMove];
+        caaBoard[iRowMove][iColMove] = ' ';
+    }
+}
